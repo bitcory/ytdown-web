@@ -2,6 +2,7 @@
 import re
 import os
 import tempfile
+import requests
 from typing import Callable, Optional
 import yt_dlp
 
@@ -22,8 +23,94 @@ class WebDownloader:
         r'(https?://)?(www\.|vm\.|vt\.)?tiktok\.com/(@[\w.]+/video/\d+|[\w]+/?)'
     )
 
+    COBALT_API = "https://api.cobalt.tools"
+
     def __init__(self):
         self.temp_dir = tempfile.mkdtemp()
+
+    def is_youtube_url(self, url: str) -> bool:
+        """YouTube URL인지 확인"""
+        return bool(self.YOUTUBE_REGEX.match(url))
+
+    def download_via_cobalt(
+        self,
+        url: str,
+        task_id: str,
+        audio_only: bool = False,
+        progress_callback: Optional[Callable[[float, str], None]] = None
+    ) -> Optional[str]:
+        """cobalt.tools API를 통한 다운로드"""
+        if progress_callback:
+            progress_callback(10, "cobalt API 요청 중...")
+
+        try:
+            # cobalt API 요청
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "url": url,
+                "downloadMode": "audio" if audio_only else "auto",
+                "audioFormat": "mp3" if audio_only else "best",
+            }
+
+            response = requests.post(
+                self.COBALT_API,
+                json=payload,
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                if progress_callback:
+                    progress_callback(0, f"API 오류: {response.status_code}")
+                return None
+
+            data = response.json()
+
+            if data.get("status") == "error":
+                if progress_callback:
+                    progress_callback(0, f"오류: {data.get('error', {}).get('code', 'unknown')}")
+                return None
+
+            # 다운로드 URL 추출
+            download_url = data.get("url")
+            if not download_url:
+                if progress_callback:
+                    progress_callback(0, "다운로드 URL을 찾을 수 없습니다")
+                return None
+
+            if progress_callback:
+                progress_callback(30, "파일 다운로드 중...")
+
+            # 파일 다운로드
+            ext = "mp3" if audio_only else "mp4"
+            output_path = os.path.join(self.temp_dir, f"{task_id}.{ext}")
+
+            file_response = requests.get(download_url, stream=True, timeout=300)
+            total_size = int(file_response.headers.get('content-length', 0))
+            downloaded = 0
+
+            with open(output_path, 'wb') as f:
+                for chunk in file_response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size > 0 and progress_callback:
+                            percent = 30 + (downloaded / total_size) * 65
+                            progress_callback(percent, f"다운로드 중... {percent:.0f}%")
+
+            if progress_callback:
+                progress_callback(100, "완료!")
+
+            return output_path if os.path.exists(output_path) else None
+
+        except Exception as e:
+            print(f"cobalt 다운로드 실패: {e}")
+            if progress_callback:
+                progress_callback(0, f"오류: {str(e)[:50]}")
+            return None
 
     @staticmethod
     def validate_url(url: str) -> bool:
@@ -65,6 +152,10 @@ class WebDownloader:
         _retry: int = 0
     ) -> Optional[str]:
         """영상 다운로드 - 파일 경로 반환"""
+
+        # YouTube는 cobalt API 사용
+        if self.is_youtube_url(url):
+            return self.download_via_cobalt(url, task_id, audio_only=False, progress_callback=progress_callback)
 
         def progress_hook(d):
             if d['status'] == 'downloading':
@@ -137,6 +228,10 @@ class WebDownloader:
         _retry: int = 0
     ) -> Optional[str]:
         """음원 추출 (MP3) - 파일 경로 반환"""
+
+        # YouTube는 cobalt API 사용
+        if self.is_youtube_url(url):
+            return self.download_via_cobalt(url, task_id, audio_only=True, progress_callback=progress_callback)
 
         def progress_hook(d):
             if d['status'] == 'downloading':
