@@ -1,6 +1,8 @@
 """Multi Downloader 웹 서버"""
 import os
+import json
 import uuid
+import time
 import threading
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from downloader import WebDownloader
@@ -110,10 +112,9 @@ def run_download(task_id: str, url: str, download_type: str):
 def get_progress(task_id: str):
     """SSE로 진행률 스트리밍"""
     def generate():
-        import time
         while True:
             if task_id not in tasks:
-                yield f"data: {jsonify({'error': 'Task not found'}).get_data(as_text=True)}\n\n"
+                yield f"data: {json.dumps({'error': 'Task not found'})}\n\n"
                 break
 
             task = tasks[task_id]
@@ -125,13 +126,13 @@ def get_progress(task_id: str):
 
             if task['status'] == 'completed':
                 data['download_url'] = f'/api/file/{task_id}'
-                yield f"data: {jsonify(data).get_data(as_text=True)}\n\n"
+                yield f"data: {json.dumps(data)}\n\n"
                 break
             elif task['status'] == 'failed':
-                yield f"data: {jsonify(data).get_data(as_text=True)}\n\n"
+                yield f"data: {json.dumps(data)}\n\n"
                 break
             else:
-                yield f"data: {jsonify(data).get_data(as_text=True)}\n\n"
+                yield f"data: {json.dumps(data)}\n\n"
 
             time.sleep(0.5)
 
@@ -163,7 +164,6 @@ def download_file(task_id: str):
 
     # 1분 후 파일 삭제 (별도 스레드에서)
     def cleanup_later():
-        import time
         time.sleep(60)
         downloader.cleanup(filepath)
         if task_id in tasks:
