@@ -1,20 +1,11 @@
-"""Multi Downloader 웹 서버"""
+"""Multi Downloader 웹 서버 - TikTok, Instagram 지원"""
 import os
 import json
 import uuid
 import time
 import threading
-import requests
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from downloader import WebDownloader
-
-# cobalt 인스턴스 목록 (turnstile 없는 공개 인스턴스)
-COBALT_INSTANCES = [
-    'https://cobalt-backend.canine.tools',
-    'https://cobalt-api.meowing.de',
-    'https://kityune.imput.net',
-    'https://capi.3kh0.net',
-]
 
 app = Flask(__name__)
 
@@ -39,51 +30,9 @@ def validate_url():
         return jsonify({'valid': False, 'error': 'URL을 입력해주세요.'})
 
     if not downloader.validate_url(url):
-        return jsonify({'valid': False, 'error': '지원하지 않는 URL입니다. (YouTube, TikTok, Instagram 지원)'})
+        return jsonify({'valid': False, 'error': '지원하지 않는 URL입니다. (TikTok, Instagram 지원)'})
 
     return jsonify({'valid': True})
-
-
-@app.route('/api/cobalt', methods=['POST'])
-def cobalt_proxy():
-    """cobalt API 프록시 (CORS 우회)"""
-    data = request.get_json()
-    url = data.get('url', '')
-    audio_only = data.get('audioOnly', False)
-
-    if not url:
-        return jsonify({'error': 'URL을 입력해주세요.'}), 400
-
-    for instance in COBALT_INSTANCES:
-        try:
-            response = requests.post(
-                instance,
-                json={
-                    'url': url,
-                    'downloadMode': 'audio' if audio_only else 'auto',
-                    'audioFormat': 'mp3',
-                    'videoQuality': '1080',
-                    'filenameStyle': 'basic',
-                },
-                headers={
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                },
-                timeout=30
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                print(f"[cobalt] {instance} 응답: {result}")
-
-                if result.get('status') != 'error':
-                    return jsonify(result)
-
-        except Exception as e:
-            print(f"[cobalt] {instance} 실패: {e}")
-            continue
-
-    return jsonify({'error': 'API 요청 실패'}), 500
 
 
 @app.route('/api/download', methods=['POST'])
@@ -97,7 +46,7 @@ def start_download():
         return jsonify({'error': 'URL을 입력해주세요.'}), 400
 
     if not downloader.validate_url(url):
-        return jsonify({'error': '지원하지 않는 URL입니다.'}), 400
+        return jsonify({'error': '지원하지 않는 URL입니다. (TikTok, Instagram만 지원)'}), 400
 
     # 작업 ID 생성
     task_id = str(uuid.uuid4())[:8]
@@ -206,7 +155,7 @@ def download_file(task_id: str):
     if not os.path.exists(filepath):
         return jsonify({'error': 'File not found'}), 404
 
-    # 파일 전송 후 정리 예약
+    # 파일 전송
     response = send_file(
         filepath,
         as_attachment=True,

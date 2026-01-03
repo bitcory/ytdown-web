@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let eventSource = null;
 
-
     downloadBtn.addEventListener('click', startDownload);
 
     urlInput.addEventListener('keypress', function(e) {
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // YouTube URL 감지
     function isYouTubeUrl(url) {
-        const youtubeRegex = /(https?:\/\/)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)\/(watch\?v=|embed\/|v\/|.+\?v=|shorts\/)?([^&=%\?]{11})/;
+        const youtubeRegex = /(youtube|youtu\.be)/i;
         return youtubeRegex.test(url);
     }
 
@@ -33,91 +32,29 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // YouTube URL 차단
+        if (isYouTubeUrl(url)) {
+            alert('YouTube는 지원하지 않습니다.\nTikTok, Instagram만 지원됩니다.');
+            return;
+        }
+
         // UI 초기화
         downloadBtn.disabled = true;
         downloadBtn.textContent = '다운로드 중...';
         progressSection.style.display = 'block';
         downloadLink.style.display = 'none';
         progressFill.style.width = '0%';
-        statusText.textContent = '요청 중...';
+        statusText.textContent = '서버 연결 중...';
 
         // 이전 SSE 연결 종료
         if (eventSource) {
             eventSource.close();
         }
 
-        // YouTube는 클라이언트에서 cobalt API 직접 호출
-        if (isYouTubeUrl(url)) {
-            await downloadViaCobalt(url, type === 'audio');
-        } else {
-            // TikTok/Instagram은 서버에서 처리
-            await downloadViaServer(url, type);
-        }
+        // 서버를 통한 다운로드 (TikTok/Instagram)
+        await downloadViaServer(url, type);
     }
 
-    // cobalt API로 YouTube 다운로드 (서버 프록시 사용)
-    async function downloadViaCobalt(url, audioOnly) {
-        statusText.textContent = '서버 연결 중...';
-        progressFill.style.width = '20%';
-
-        try {
-            statusText.textContent = '서버 연결 중...';
-            progressFill.style.width = '30%';
-
-            // 서버 프록시를 통해 cobalt API 호출
-            const response = await fetch('/api/cobalt', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    url: url,
-                    audioOnly: audioOnly,
-                }),
-            });
-
-            const data = await response.json();
-            console.log('API 응답:', data);
-
-            if (data.error) {
-                showError(data.error);
-                return;
-            }
-
-            // 다운로드 URL 처리
-            let downloadUrl = data.url;
-
-            if (data.status === 'picker' && data.picker) {
-                // 여러 옵션이 있는 경우 첫 번째 선택
-                downloadUrl = data.picker[0]?.url;
-            }
-
-            if (downloadUrl) {
-                statusText.textContent = '다운로드 준비 완료!';
-                progressFill.style.width = '100%';
-
-                // 다운로드 링크 표시
-                fileLink.href = downloadUrl;
-                fileLink.target = '_blank';
-                downloadLink.style.display = 'block';
-
-                // 새 탭에서 다운로드
-                window.open(downloadUrl, '_blank');
-
-                downloadBtn.disabled = false;
-                downloadBtn.textContent = '다운로드';
-                return;
-            }
-
-            showError('다운로드 URL을 찾을 수 없습니다.');
-
-        } catch (error) {
-            console.log('API 연결 실패:', error);
-            showError('YouTube 다운로드 실패. 나중에 다시 시도해주세요.');
-        }
-    }
-
-    // 서버를 통한 다운로드 (TikTok/Instagram)
     async function downloadViaServer(url, type) {
         try {
             const response = await fetch('/api/download', {
