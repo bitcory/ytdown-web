@@ -1,4 +1,4 @@
-"""웹 버전 다운로더 모듈 - YouTube, TikTok, Instagram 지원 (yt-dlp 사용)"""
+"""웹 버전 다운로더 모듈 - Instagram, TikTok 지원 (yt-dlp 사용)"""
 import re
 import os
 import tempfile

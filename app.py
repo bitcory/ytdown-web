@@ -1,4 +1,4 @@
-"""Multi Downloader 웹 서버 - TikTok, Instagram 지원"""
+"""Multi Downloader 웹 서버 - Instagram, TikTok 지원"""
 import os
 import json
 import uuid
@@ -30,7 +30,7 @@ def validate_url():
         return jsonify({'valid': False, 'error': 'URL을 입력해주세요.'})
 
     if not downloader.validate_url(url):
-        return jsonify({'valid': False, 'error': '지원하지 않는 URL입니다. (TikTok, Instagram 지원)'})
+        return jsonify({'valid': False, 'error': '지원하지 않는 URL입니다. (Instagram, TikTok 지원)'})
 
     return jsonify({'valid': True})
 
@@ -46,7 +46,7 @@ def start_download():
         return jsonify({'error': 'URL을 입력해주세요.'}), 400
 
     if not downloader.validate_url(url):
-        return jsonify({'error': '지원하지 않는 URL입니다. (TikTok, Instagram 지원)'}), 400
+        return jsonify({'error': '지원하지 않는 URL입니다. (Instagram, TikTok 지원)'}), 400
 
     # 작업 ID 생성
     task_id = str(uuid.uuid4())[:8]
