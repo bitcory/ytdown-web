@@ -1,0 +1,5 @@
+services:
+  - type: web
+    name: multi-downloader
+    runtime: docker
+    autoDeploy: true
