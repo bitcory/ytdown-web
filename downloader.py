@@ -1,4 +1,4 @@
-"""웹 버전 다운로더 모듈 - TikTok, Instagram 지원 (yt-dlp 사용)"""
+"""웹 버전 다운로더 모듈 - YouTube, TikTok, Instagram 지원 (yt-dlp 사용)"""
 import re
 import os
 import tempfile
@@ -7,7 +7,7 @@ import yt_dlp
 
 
 class WebDownloader:
-    """웹 서버용 다운로더 클래스 (TikTok/Instagram)"""
+    """웹 서버용 다운로더 클래스 (YouTube/TikTok/Instagram)"""
 
     INSTAGRAM_REGEX = re.compile(
         r'(https?://)?(www\.)?instagram\.com/(p|reel|reels|tv)/[\w-]+'
@@ -23,6 +23,10 @@ class WebDownloader:
 
     def __init__(self):
         self.temp_dir = tempfile.mkdtemp()
+
+    def _is_youtube(self, url: str) -> bool:
+        """YouTube URL인지 확인"""
+        return bool(self.YOUTUBE_REGEX.match(url))
 
     @staticmethod
     def validate_url(url: str) -> bool:
@@ -75,6 +79,8 @@ class WebDownloader:
                 if progress_callback:
                     progress_callback(95, "처리 중...")
 
+        is_youtube = self._is_youtube(url)
+
         if _retry >= 2:
             video_format = 'best[ext=mp4]/best'
         else:
@@ -95,6 +101,19 @@ class WebDownloader:
             },
         }
 
+        # YouTube 전용 우회 옵션
+        if is_youtube:
+            # 클라이언트 목록: android, ios, web, tv 등을 시도
+            clients = ['android', 'ios', 'tv_embedded', 'web']
+            client_to_use = clients[_retry % len(clients)]
+            ydl_opts['extractor_args'] = {
+                'youtube': {
+                    'player_client': [client_to_use],
+                    'player_skip': ['webpage', 'configs'],
+                }
+            }
+            ydl_opts['http_headers']['User-Agent'] = 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip'
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -113,11 +132,14 @@ class WebDownloader:
             error_str = str(e)
             print(f"다운로드 실패: {e}")
 
-            if '403' in error_str or 'Forbidden' in error_str or 'rate-limit' in error_str:
-                if _retry < 2:
-                    if progress_callback:
-                        progress_callback(0, "다른 포맷으로 재시도 중...")
-                    return self.download_video(url, task_id, progress_callback, _retry + 1)
+            # YouTube 및 기타 에러 시 재시도
+            retry_keywords = ['403', 'Forbidden', 'rate-limit', 'Sign in', 'bot', 'unavailable']
+            should_retry = any(kw.lower() in error_str.lower() for kw in retry_keywords)
+
+            if should_retry and _retry < 3:
+                if progress_callback:
+                    progress_callback(0, f"재시도 중... ({_retry + 1}/4)")
+                return self.download_video(url, task_id, progress_callback, _retry + 1)
 
             if progress_callback:
                 progress_callback(0, f"오류: {error_str[:100]}")
@@ -146,6 +168,8 @@ class WebDownloader:
                 if progress_callback:
                     progress_callback(85, "MP3 변환 중...")
 
+        is_youtube = self._is_youtube(url)
+
         if _retry >= 2:
             audio_format = 'best'
         else:
@@ -170,6 +194,18 @@ class WebDownloader:
             },
         }
 
+        # YouTube 전용 우회 옵션
+        if is_youtube:
+            clients = ['android', 'ios', 'tv_embedded', 'web']
+            client_to_use = clients[_retry % len(clients)]
+            ydl_opts['extractor_args'] = {
+                'youtube': {
+                    'player_client': [client_to_use],
+                    'player_skip': ['webpage', 'configs'],
+                }
+            }
+            ydl_opts['http_headers']['User-Agent'] = 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip'
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
@@ -192,11 +228,14 @@ class WebDownloader:
             error_str = str(e)
             print(f"다운로드 실패: {e}")
 
-            if '403' in error_str or 'Forbidden' in error_str or 'rate-limit' in error_str:
-                if _retry < 2:
-                    if progress_callback:
-                        progress_callback(0, "다른 포맷으로 재시도 중...")
-                    return self.download_audio(url, task_id, progress_callback, _retry + 1)
+            # YouTube 및 기타 에러 시 재시도
+            retry_keywords = ['403', 'Forbidden', 'rate-limit', 'Sign in', 'bot', 'unavailable']
+            should_retry = any(kw.lower() in error_str.lower() for kw in retry_keywords)
+
+            if should_retry and _retry < 3:
+                if progress_callback:
+                    progress_callback(0, f"재시도 중... ({_retry + 1}/4)")
+                return self.download_audio(url, task_id, progress_callback, _retry + 1)
 
             if progress_callback:
                 progress_callback(0, f"오류: {error_str[:100]}")
