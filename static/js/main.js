@@ -57,11 +57,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // cobalt API로 YouTube 다운로드 (서버 프록시 사용)
     async function downloadViaCobalt(url, audioOnly) {
-        statusText.textContent = 'YouTube 처리 중...';
+        statusText.textContent = '서버 연결 중...';
         progressFill.style.width = '20%';
 
         try {
-            statusText.textContent = 'cobalt 서버 연결 중...';
+            statusText.textContent = '서버 연결 중...';
             progressFill.style.width = '30%';
 
             // 서버 프록시를 통해 cobalt API 호출

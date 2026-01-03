@@ -8,11 +8,12 @@ import requests
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from downloader import WebDownloader
 
-# cobalt 인스턴스 목록
+# cobalt 인스턴스 목록 (turnstile 없는 공개 인스턴스)
 COBALT_INSTANCES = [
-    'https://api.cobalt.tools',
-    'https://cobalt-api.kwiatekmiki.com',
-    'https://cobalt.api.timelessnesses.me'
+    'https://cobalt-backend.canine.tools',
+    'https://cobalt-api.meowing.de',
+    'https://kityune.imput.net',
+    'https://capi.3kh0.net',
 ]
 
 app = Flask(__name__)
