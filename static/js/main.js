@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusText = document.getElementById('statusText');
     const downloadLink = document.getElementById('downloadLink');
     const fileLink = document.getElementById('fileLink');
+    const refreshBtn = document.getElementById('refreshBtn');
 
     let eventSource = null;
 
@@ -16,6 +17,8 @@ document.addEventListener('DOMContentLoaded', function() {
             startDownload();
         }
     });
+
+    refreshBtn.addEventListener('click', resetUI);
 
     async function startDownload() {
         const url = urlInput.value.trim();
@@ -146,5 +149,20 @@ document.addEventListener('DOMContentLoaded', function() {
         progressFill.style.width = '0%';
         downloadBtn.disabled = false;
         downloadBtn.innerHTML = '<span class="btn-text">다운로드</span><span class="btn-icon">▼</span>';
+    }
+
+    function resetUI() {
+        urlInput.value = '';
+        progressSection.style.display = 'none';
+        downloadLink.style.display = 'none';
+        progressFill.style.width = '0%';
+        statusText.textContent = '대기 중...';
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = '<span class="btn-text">다운로드</span><span class="btn-icon">▼</span>';
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+        urlInput.focus();
     }
 });
