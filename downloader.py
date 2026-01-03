@@ -30,11 +30,10 @@ class WebDownloader:
 
     @staticmethod
     def validate_url(url: str) -> bool:
-        """URL 유효성 검사 (TikTok/Instagram/YouTube)"""
+        """URL 유효성 검사 (TikTok/Instagram)"""
         return bool(
             WebDownloader.INSTAGRAM_REGEX.match(url) or
-            WebDownloader.TIKTOK_REGEX.match(url) or
-            WebDownloader.YOUTUBE_REGEX.match(url)
+            WebDownloader.TIKTOK_REGEX.match(url)
         )
 
     def get_video_info(self, url: str) -> Optional[dict]:
