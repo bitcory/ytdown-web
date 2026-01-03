@@ -83,7 +83,7 @@ def cobalt_proxy():
             print(f"[cobalt] {instance} 실패: {e}")
             continue
 
-    return jsonify({'error': 'cobalt API 요청 실패'}), 500
+    return jsonify({'error': 'API 요청 실패'}), 500
 
 
 @app.route('/api/download', methods=['POST'])

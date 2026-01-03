@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             const data = await response.json();
-            console.log('cobalt 응답:', data);
+            console.log('API 응답:', data);
 
             if (data.error) {
                 showError(data.error);
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('다운로드 URL을 찾을 수 없습니다.');
 
         } catch (error) {
-            console.log('cobalt 연결 실패:', error);
+            console.log('API 연결 실패:', error);
             showError('YouTube 다운로드 실패. 나중에 다시 시도해주세요.');
         }
     }
