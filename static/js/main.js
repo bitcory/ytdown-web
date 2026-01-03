@@ -117,6 +117,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (data.status === 'completed') {
                 eventSource.close();
+                eventSource = null;
                 downloadBtn.disabled = false;
                 downloadBtn.innerHTML = '<span class="btn-text">다운로드</span><span class="btn-icon">▼</span>';
 
@@ -133,6 +134,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         eventSource.onerror = function() {
             eventSource.close();
+            // 다운로드 완료 후에는 에러 무시
+            if (downloadLink.style.display === 'block') {
+                sseRetryCount = 0;
+                return;
+            }
             if (sseRetryCount < maxSseRetries) {
                 sseRetryCount++;
                 statusText.textContent = `재연결 중... (${sseRetryCount}/${maxSseRetries})`;
