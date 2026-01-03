@@ -9,6 +9,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let eventSource = null;
 
+    // cobalt 공개 인스턴스 목록 (CORS 지원)
+    const COBALT_INSTANCES = [
+        'https://api.cobalt.tools',
+        'https://cobalt-api.kwiatekmiki.com',
+        'https://cobalt.api.timelessnesses.me'
+    ];
+
     downloadBtn.addEventListener('click', startDownload);
 
     urlInput.addEventListener('keypress', function(e) {
@@ -16,6 +23,12 @@ document.addEventListener('DOMContentLoaded', function() {
             startDownload();
         }
     });
+
+    // YouTube URL 감지
+    function isYouTubeUrl(url) {
+        const youtubeRegex = /(https?:\/\/)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)\/(watch\?v=|embed\/|v\/|.+\?v=|shorts\/)?([^&=%\?]{11})/;
+        return youtubeRegex.test(url);
+    }
 
     async function startDownload() {
         const url = urlInput.value.trim();
@@ -39,8 +52,91 @@ document.addEventListener('DOMContentLoaded', function() {
             eventSource.close();
         }
 
+        // YouTube는 클라이언트에서 cobalt API 직접 호출
+        if (isYouTubeUrl(url)) {
+            await downloadViaCobalt(url, type === 'audio');
+        } else {
+            // TikTok/Instagram은 서버에서 처리
+            await downloadViaServer(url, type);
+        }
+    }
+
+    // cobalt API로 YouTube 다운로드 (클라이언트 사이드)
+    async function downloadViaCobalt(url, audioOnly) {
+        statusText.textContent = 'YouTube 처리 중...';
+        progressFill.style.width = '20%';
+
+        for (const instance of COBALT_INSTANCES) {
+            try {
+                statusText.textContent = `cobalt 서버 연결 중...`;
+                progressFill.style.width = '30%';
+
+                const response = await fetch(instance, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        downloadMode: audioOnly ? 'audio' : 'auto',
+                        audioFormat: 'mp3',
+                        videoQuality: '1080',
+                        filenameStyle: 'basic',
+                    }),
+                });
+
+                if (!response.ok) {
+                    console.log(`${instance} 응답 실패: ${response.status}`);
+                    continue;
+                }
+
+                const data = await response.json();
+                console.log('cobalt 응답:', data);
+
+                if (data.status === 'error') {
+                    console.log(`${instance} 에러: ${data.error?.code || 'unknown'}`);
+                    continue;
+                }
+
+                // 다운로드 URL 처리
+                let downloadUrl = data.url;
+
+                if (data.status === 'picker' && data.picker) {
+                    // 여러 옵션이 있는 경우 첫 번째 선택
+                    downloadUrl = data.picker[0]?.url;
+                }
+
+                if (downloadUrl) {
+                    statusText.textContent = '다운로드 준비 완료!';
+                    progressFill.style.width = '100%';
+
+                    // 다운로드 링크 표시
+                    fileLink.href = downloadUrl;
+                    fileLink.target = '_blank';
+                    downloadLink.style.display = 'block';
+
+                    // 새 탭에서 다운로드
+                    window.open(downloadUrl, '_blank');
+
+                    downloadBtn.disabled = false;
+                    downloadBtn.textContent = '다운로드';
+                    return;
+                }
+
+            } catch (error) {
+                console.log(`${instance} 연결 실패:`, error);
+                continue;
+            }
+        }
+
+        // 모든 인스턴스 실패
+        showError('YouTube 다운로드 실패. 나중에 다시 시도해주세요.');
+    }
+
+    // 서버를 통한 다운로드 (TikTok/Instagram)
+    async function downloadViaServer(url, type) {
         try {
-            // 다운로드 시작 요청
             const response = await fetch('/api/download', {
                 method: 'POST',
                 headers: {
@@ -81,16 +177,13 @@ document.addEventListener('DOMContentLoaded', function() {
             statusText.textContent = data.message;
 
             if (data.status === 'completed') {
-                // 다운로드 완료
                 eventSource.close();
                 downloadBtn.disabled = false;
                 downloadBtn.textContent = '다운로드';
 
-                // 파일 다운로드 링크 표시
                 fileLink.href = data.download_url;
                 downloadLink.style.display = 'block';
 
-                // 자동 다운로드
                 window.location.href = data.download_url;
 
             } else if (data.status === 'failed') {

@@ -1,19 +1,13 @@
-"""웹 버전 다운로더 모듈 - YouTube, TikTok, Instagram 지원"""
+"""웹 버전 다운로더 모듈 - TikTok, Instagram 지원 (YouTube는 클라이언트에서 처리)"""
 import re
 import os
 import tempfile
-import requests
 from typing import Callable, Optional
 import yt_dlp
 
 
 class WebDownloader:
-    """웹 서버용 다운로더 클래스"""
-
-    YOUTUBE_REGEX = re.compile(
-        r'(https?://)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)/'
-        r'(watch\?v=|embed/|v/|.+\?v=|shorts/)?([^&=%\?]{11})'
-    )
+    """웹 서버용 다운로더 클래스 (TikTok/Instagram)"""
 
     INSTAGRAM_REGEX = re.compile(
         r'(https?://)?(www\.)?instagram\.com/(p|reel|reels|tv)/[\w-]+'
@@ -23,104 +17,13 @@ class WebDownloader:
         r'(https?://)?(www\.|vm\.|vt\.)?tiktok\.com/(@[\w.]+/video/\d+|[\w]+/?)'
     )
 
-    COBALT_API = "https://api.cobalt.tools/api/json"
-
     def __init__(self):
         self.temp_dir = tempfile.mkdtemp()
 
-    def is_youtube_url(self, url: str) -> bool:
-        """YouTube URL인지 확인"""
-        return bool(self.YOUTUBE_REGEX.match(url))
-
-    def download_via_cobalt(
-        self,
-        url: str,
-        task_id: str,
-        audio_only: bool = False,
-        progress_callback: Optional[Callable[[float, str], None]] = None
-    ) -> Optional[str]:
-        """cobalt.tools API를 통한 다운로드"""
-        if progress_callback:
-            progress_callback(10, "cobalt API 요청 중...")
-
-        try:
-            # cobalt API 요청
-            headers = {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "url": url,
-                "isAudioOnly": audio_only,
-                "aFormat": "mp3",
-                "filenamePattern": "basic",
-            }
-
-            response = requests.post(
-                self.COBALT_API,
-                json=payload,
-                headers=headers,
-                timeout=30
-            )
-
-            print(f"[cobalt] Status: {response.status_code}, Response: {response.text[:500]}")
-
-            if response.status_code != 200:
-                if progress_callback:
-                    progress_callback(0, f"API 오류: {response.status_code}")
-                return None
-
-            data = response.json()
-
-            if data.get("status") == "error":
-                error_text = data.get("text", "unknown error")
-                if progress_callback:
-                    progress_callback(0, f"오류: {error_text[:50]}")
-                return None
-
-            # 다운로드 URL 추출 (status가 redirect 또는 stream일 때)
-            download_url = data.get("url")
-            if not download_url:
-                if progress_callback:
-                    progress_callback(0, "다운로드 URL을 찾을 수 없습니다")
-                return None
-
-            if progress_callback:
-                progress_callback(30, "파일 다운로드 중...")
-
-            # 파일 다운로드
-            ext = "mp3" if audio_only else "mp4"
-            output_path = os.path.join(self.temp_dir, f"{task_id}.{ext}")
-
-            file_response = requests.get(download_url, stream=True, timeout=300)
-            total_size = int(file_response.headers.get('content-length', 0))
-            downloaded = 0
-
-            with open(output_path, 'wb') as f:
-                for chunk in file_response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_size > 0 and progress_callback:
-                            percent = 30 + (downloaded / total_size) * 65
-                            progress_callback(percent, f"다운로드 중... {percent:.0f}%")
-
-            if progress_callback:
-                progress_callback(100, "완료!")
-
-            return output_path if os.path.exists(output_path) else None
-
-        except Exception as e:
-            print(f"cobalt 다운로드 실패: {e}")
-            if progress_callback:
-                progress_callback(0, f"오류: {str(e)[:50]}")
-            return None
-
     @staticmethod
     def validate_url(url: str) -> bool:
-        """URL 유효성 검사"""
+        """URL 유효성 검사 (TikTok/Instagram만)"""
         return bool(
-            WebDownloader.YOUTUBE_REGEX.match(url) or
             WebDownloader.INSTAGRAM_REGEX.match(url) or
             WebDownloader.TIKTOK_REGEX.match(url)
         )
@@ -131,10 +34,6 @@ class WebDownloader:
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
-            'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -156,10 +55,6 @@ class WebDownloader:
         _retry: int = 0
     ) -> Optional[str]:
         """영상 다운로드 - 파일 경로 반환"""
-
-        # YouTube는 cobalt API 사용
-        if self.is_youtube_url(url):
-            return self.download_via_cobalt(url, task_id, audio_only=False, progress_callback=progress_callback)
 
         def progress_hook(d):
             if d['status'] == 'downloading':
@@ -189,17 +84,12 @@ class WebDownloader:
             'merge_output_format': 'mp4',
             'quiet': True,
             'no_warnings': True,
-            'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
         }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 filename = ydl.prepare_filename(info)
-                # mp4로 변환된 경우 확장자 수정
                 if not filename.endswith('.mp4'):
                     base = os.path.splitext(filename)[0]
                     if os.path.exists(base + '.mp4'):
@@ -233,10 +123,6 @@ class WebDownloader:
     ) -> Optional[str]:
         """음원 추출 (MP3) - 파일 경로 반환"""
 
-        # YouTube는 cobalt API 사용
-        if self.is_youtube_url(url):
-            return self.download_via_cobalt(url, task_id, audio_only=True, progress_callback=progress_callback)
-
         def progress_hook(d):
             if d['status'] == 'downloading':
                 total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
@@ -269,24 +155,18 @@ class WebDownloader:
             }],
             'quiet': True,
             'no_warnings': True,
-            'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
         }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
 
-                # mp3 파일 찾기
                 mp3_file = os.path.join(self.temp_dir, f'{task_id}.mp3')
                 if os.path.exists(mp3_file):
                     if progress_callback:
                         progress_callback(100, "완료!")
                     return mp3_file
 
-                # 다른 확장자로 저장된 경우 찾기
                 for f in os.listdir(self.temp_dir):
                     if f.startswith(task_id) and f.endswith('.mp3'):
                         if progress_callback:
