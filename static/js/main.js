@@ -9,12 +9,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let eventSource = null;
 
-    // cobalt 공개 인스턴스 목록 (CORS 지원)
-    const COBALT_INSTANCES = [
-        'https://api.cobalt.tools',
-        'https://cobalt-api.kwiatekmiki.com',
-        'https://cobalt.api.timelessnesses.me'
-    ];
 
     downloadBtn.addEventListener('click', startDownload);
 
@@ -61,77 +55,66 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // cobalt API로 YouTube 다운로드 (클라이언트 사이드)
+    // cobalt API로 YouTube 다운로드 (서버 프록시 사용)
     async function downloadViaCobalt(url, audioOnly) {
         statusText.textContent = 'YouTube 처리 중...';
         progressFill.style.width = '20%';
 
-        for (const instance of COBALT_INSTANCES) {
-            try {
-                statusText.textContent = `cobalt 서버 연결 중...`;
-                progressFill.style.width = '30%';
+        try {
+            statusText.textContent = 'cobalt 서버 연결 중...';
+            progressFill.style.width = '30%';
 
-                const response = await fetch(instance, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        url: url,
-                        downloadMode: audioOnly ? 'audio' : 'auto',
-                        audioFormat: 'mp3',
-                        videoQuality: '1080',
-                        filenameStyle: 'basic',
-                    }),
-                });
+            // 서버 프록시를 통해 cobalt API 호출
+            const response = await fetch('/api/cobalt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    url: url,
+                    audioOnly: audioOnly,
+                }),
+            });
 
-                if (!response.ok) {
-                    console.log(`${instance} 응답 실패: ${response.status}`);
-                    continue;
-                }
+            const data = await response.json();
+            console.log('cobalt 응답:', data);
 
-                const data = await response.json();
-                console.log('cobalt 응답:', data);
-
-                if (data.status === 'error') {
-                    console.log(`${instance} 에러: ${data.error?.code || 'unknown'}`);
-                    continue;
-                }
-
-                // 다운로드 URL 처리
-                let downloadUrl = data.url;
-
-                if (data.status === 'picker' && data.picker) {
-                    // 여러 옵션이 있는 경우 첫 번째 선택
-                    downloadUrl = data.picker[0]?.url;
-                }
-
-                if (downloadUrl) {
-                    statusText.textContent = '다운로드 준비 완료!';
-                    progressFill.style.width = '100%';
-
-                    // 다운로드 링크 표시
-                    fileLink.href = downloadUrl;
-                    fileLink.target = '_blank';
-                    downloadLink.style.display = 'block';
-
-                    // 새 탭에서 다운로드
-                    window.open(downloadUrl, '_blank');
-
-                    downloadBtn.disabled = false;
-                    downloadBtn.textContent = '다운로드';
-                    return;
-                }
-
-            } catch (error) {
-                console.log(`${instance} 연결 실패:`, error);
-                continue;
+            if (data.error) {
+                showError(data.error);
+                return;
             }
-        }
 
-        // 모든 인스턴스 실패
-        showError('YouTube 다운로드 실패. 나중에 다시 시도해주세요.');
+            // 다운로드 URL 처리
+            let downloadUrl = data.url;
+
+            if (data.status === 'picker' && data.picker) {
+                // 여러 옵션이 있는 경우 첫 번째 선택
+                downloadUrl = data.picker[0]?.url;
+            }
+
+            if (downloadUrl) {
+                statusText.textContent = '다운로드 준비 완료!';
+                progressFill.style.width = '100%';
+
+                // 다운로드 링크 표시
+                fileLink.href = downloadUrl;
+                fileLink.target = '_blank';
+                downloadLink.style.display = 'block';
+
+                // 새 탭에서 다운로드
+                window.open(downloadUrl, '_blank');
+
+                downloadBtn.disabled = false;
+                downloadBtn.textContent = '다운로드';
+                return;
+            }
+
+            showError('다운로드 URL을 찾을 수 없습니다.');
+
+        } catch (error) {
+            console.log('cobalt 연결 실패:', error);
+            showError('YouTube 다운로드 실패. 나중에 다시 시도해주세요.');
+        }
     }
 
     // 서버를 통한 다운로드 (TikTok/Instagram)
