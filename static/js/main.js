@@ -17,24 +17,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // YouTube URL 감지
-    function isYouTubeUrl(url) {
-        const youtubeRegex = /(youtube|youtu\.be)/i;
-        return youtubeRegex.test(url);
-    }
-
     async function startDownload() {
         const url = urlInput.value.trim();
         const type = document.querySelector('input[name="type"]:checked').value;
 
         if (!url) {
             alert('URL을 입력해주세요.');
-            return;
-        }
-
-        // YouTube URL 차단
-        if (isYouTubeUrl(url)) {
-            alert('YouTube는 지원하지 않습니다.\nTikTok, Instagram만 지원됩니다.');
             return;
         }
 

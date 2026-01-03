@@ -17,15 +17,20 @@ class WebDownloader:
         r'(https?://)?(www\.|vm\.|vt\.)?tiktok\.com/(@[\w.]+/video/\d+|[\w]+/?)'
     )
 
+    YOUTUBE_REGEX = re.compile(
+        r'(https?://)?(www\.|m\.)?(youtube\.com/(watch\?v=|shorts/)|youtu\.be/)[\w-]+'
+    )
+
     def __init__(self):
         self.temp_dir = tempfile.mkdtemp()
 
     @staticmethod
     def validate_url(url: str) -> bool:
-        """URL 유효성 검사 (TikTok/Instagram만)"""
+        """URL 유효성 검사 (TikTok/Instagram/YouTube)"""
         return bool(
             WebDownloader.INSTAGRAM_REGEX.match(url) or
-            WebDownloader.TIKTOK_REGEX.match(url)
+            WebDownloader.TIKTOK_REGEX.match(url) or
+            WebDownloader.YOUTUBE_REGEX.match(url)
         )
 
     def get_video_info(self, url: str) -> Optional[dict]:
