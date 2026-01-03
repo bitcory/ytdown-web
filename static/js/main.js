@@ -55,8 +55,14 @@ document.addEventListener('DOMContentLoaded', function() {
         await downloadViaServer(url, type);
     }
 
-    async function downloadViaServer(url, type) {
+    async function downloadViaServer(url, type, retryCount = 0) {
+        const maxRetries = 3;
+
         try {
+            if (retryCount > 0) {
+                statusText.textContent = `재시도 중... (${retryCount}/${maxRetries})`;
+            }
+
             const response = await fetch('/api/download', {
                 method: 'POST',
                 headers: {
@@ -68,6 +74,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
 
             if (data.error) {
+                if (retryCount < maxRetries) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    return downloadViaServer(url, type, retryCount + 1);
+                }
                 showError(data.error);
                 return;
             }
@@ -76,9 +86,16 @@ document.addEventListener('DOMContentLoaded', function() {
             trackProgress(data.task_id);
 
         } catch (error) {
+            if (retryCount < maxRetries) {
+                await new Promise(r => setTimeout(r, 2000));
+                return downloadViaServer(url, type, retryCount + 1);
+            }
             showError('서버 연결 실패');
         }
     }
+
+    let sseRetryCount = 0;
+    const maxSseRetries = 3;
 
     function trackProgress(taskId) {
         eventSource = new EventSource(`/api/progress/${taskId}`);
@@ -87,10 +104,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = JSON.parse(event.data);
 
             if (data.error) {
+                // Task not found 에러 시 재시도
+                if (data.error.includes('not found') && sseRetryCount < maxSseRetries) {
+                    sseRetryCount++;
+                    eventSource.close();
+                    statusText.textContent = `서버 연결 중... (${sseRetryCount}/${maxSseRetries})`;
+                    setTimeout(() => trackProgress(taskId), 2000);
+                    return;
+                }
                 showError(data.error);
                 eventSource.close();
+                sseRetryCount = 0;
                 return;
             }
+
+            sseRetryCount = 0; // 성공하면 리셋
 
             // 진행률 업데이트
             progressFill.style.width = `${data.progress}%`;
@@ -99,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.status === 'completed') {
                 eventSource.close();
                 downloadBtn.disabled = false;
-                downloadBtn.textContent = '다운로드';
+                downloadBtn.innerHTML = '<span class="btn-text">다운로드</span><span class="btn-icon">▼</span>';
 
                 fileLink.href = data.download_url;
                 downloadLink.style.display = 'block';
@@ -113,8 +141,15 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         eventSource.onerror = function() {
-            showError('연결이 끊어졌습니다.');
             eventSource.close();
+            if (sseRetryCount < maxSseRetries) {
+                sseRetryCount++;
+                statusText.textContent = `재연결 중... (${sseRetryCount}/${maxSseRetries})`;
+                setTimeout(() => trackProgress(taskId), 2000);
+            } else {
+                showError('연결이 끊어졌습니다.');
+                sseRetryCount = 0;
+            }
         };
     }
 
@@ -122,6 +157,6 @@ document.addEventListener('DOMContentLoaded', function() {
         statusText.textContent = message;
         progressFill.style.width = '0%';
         downloadBtn.disabled = false;
-        downloadBtn.textContent = '다운로드';
+        downloadBtn.innerHTML = '<span class="btn-text">다운로드</span><span class="btn-icon">▼</span>';
     }
 });
