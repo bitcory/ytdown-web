@@ -7,13 +7,26 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+    <!-- Memphis decorative shapes -->
+    <div class="memphis-bg">
+        <div class="shape circle circle-1"></div>
+        <div class="shape circle circle-2"></div>
+        <div class="shape triangle triangle-1"></div>
+        <div class="shape triangle triangle-2"></div>
+        <div class="shape zigzag zigzag-1"></div>
+        <div class="shape square square-1"></div>
+        <div class="shape dots dots-1"></div>
+        <div class="shape wavy wavy-1"></div>
+    </div>
+
     <div class="container">
         <div class="card">
+            <div class="card-accent"></div>
             <h1>Multi Downloader</h1>
             <p class="subtitle">TikTok, Instagram</p>
 
             <div class="input-group">
-                <label for="url">동영상 URL</label>
+                <label for="url">URL</label>
                 <input type="text" id="url" placeholder="URL을 입력하세요">
             </div>
 
@@ -22,11 +35,13 @@
                 <div class="radio-group">
                     <label class="radio-label">
                         <input type="radio" name="type" value="video" checked>
-                        <span>영상 (MP4)</span>
+                        <span class="radio-custom"></span>
+                        <span class="radio-text">영상 (MP4)</span>
                     </label>
                     <label class="radio-label">
                         <input type="radio" name="type" value="audio">
-                        <span>음원 (MP3)</span>
+                        <span class="radio-custom"></span>
+                        <span class="radio-text">음원 (MP3)</span>
                     </label>
                 </div>
             </div>
@@ -38,7 +53,10 @@
                 <p class="status" id="statusText">대기 중...</p>
             </div>
 
-            <button class="download-btn" id="downloadBtn">다운로드</button>
+            <button class="download-btn" id="downloadBtn">
+                <span class="btn-text">다운로드</span>
+                <span class="btn-icon">▼</span>
+            </button>
 
             <div class="download-link" id="downloadLink" style="display: none;">
                 <a href="#" id="fileLink" class="file-btn">파일 다운로드</a>
