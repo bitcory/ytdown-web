@@ -23,7 +23,7 @@ class WebDownloader:
         r'(https?://)?(www\.|vm\.|vt\.)?tiktok\.com/(@[\w.]+/video/\d+|[\w]+/?)'
     )
 
-    COBALT_API = "https://api.cobalt.tools"
+    COBALT_API = "https://api.cobalt.tools/api/json"
 
     def __init__(self):
         self.temp_dir = tempfile.mkdtemp()
@@ -51,8 +51,9 @@ class WebDownloader:
             }
             payload = {
                 "url": url,
-                "downloadMode": "audio" if audio_only else "auto",
-                "audioFormat": "mp3" if audio_only else "best",
+                "isAudioOnly": audio_only,
+                "aFormat": "mp3",
+                "filenamePattern": "basic",
             }
 
             response = requests.post(
@@ -62,6 +63,8 @@ class WebDownloader:
                 timeout=30
             )
 
+            print(f"[cobalt] Status: {response.status_code}, Response: {response.text[:500]}")
+
             if response.status_code != 200:
                 if progress_callback:
                     progress_callback(0, f"API 오류: {response.status_code}")
@@ -70,11 +73,12 @@ class WebDownloader:
             data = response.json()
 
             if data.get("status") == "error":
+                error_text = data.get("text", "unknown error")
                 if progress_callback:
-                    progress_callback(0, f"오류: {data.get('error', {}).get('code', 'unknown')}")
+                    progress_callback(0, f"오류: {error_text[:50]}")
                 return None
 
-            # 다운로드 URL 추출
+            # 다운로드 URL 추출 (status가 redirect 또는 stream일 때)
             download_url = data.get("url")
             if not download_url:
                 if progress_callback:
