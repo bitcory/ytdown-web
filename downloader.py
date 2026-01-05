@@ -83,7 +83,8 @@ class WebDownloader:
         if _retry >= 2:
             video_format = 'best[ext=mp4]/best'
         else:
-            video_format = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+            # H.264 코덱 우선 선택 (iOS 호환)
+            video_format = 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
 
         output_template = os.path.join(self.temp_dir, f'{task_id}.%(ext)s')
 
@@ -97,6 +98,14 @@ class WebDownloader:
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
                 'Referer': 'https://www.instagram.com/',
+            },
+            # H.264로 재인코딩 (iOS 호환)
+            'postprocessors': [{
+                'key': 'FFmpegVideoConvertor',
+                'preferedformat': 'mp4',
+            }],
+            'postprocessor_args': {
+                'FFmpegVideoConvertor': ['-c:v', 'libx264', '-c:a', 'aac', '-movflags', '+faststart']
             },
         }
 

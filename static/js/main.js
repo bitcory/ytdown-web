@@ -126,6 +126,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 window.location.href = data.download_url;
 
+                // 3초 후 UI 자동 리셋
+                setTimeout(() => {
+                    urlInput.value = '';
+                    progressSection.style.display = 'none';
+                    downloadLink.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    statusText.textContent = '대기 중...';
+                    urlInput.focus();
+                }, 3000);
+
             } else if (data.status === 'failed') {
                 showError(data.message);
                 eventSource.close();
