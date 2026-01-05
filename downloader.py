@@ -2,7 +2,6 @@
 import re
 import os
 import tempfile
-import subprocess
 from typing import Callable, Optional
 import yt_dlp
 
@@ -24,34 +23,6 @@ class WebDownloader:
 
     def __init__(self):
         self.temp_dir = tempfile.mkdtemp()
-
-    def _convert_to_h264(self, input_path: str, progress_callback=None) -> str:
-        """H.264/AAC로 변환 (iOS 호환)"""
-        output_path = input_path.replace('.mp4', '_h264.mp4')
-
-        if progress_callback:
-            progress_callback(95, "iOS 호환 변환 중...")
-
-        try:
-            cmd = [
-                'ffmpeg', '-y', '-i', input_path,
-                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
-                '-c:a', 'aac', '-b:a', '128k',
-                '-movflags', '+faststart',
-                output_path
-            ]
-            subprocess.run(cmd, capture_output=True, check=True)
-
-            # 원본 삭제하고 변환된 파일을 원본 이름으로
-            os.remove(input_path)
-            os.rename(output_path, input_path)
-            return input_path
-        except Exception as e:
-            print(f"H.264 변환 실패: {e}")
-            # 변환 실패해도 원본 반환
-            if os.path.exists(output_path):
-                os.remove(output_path)
-            return input_path
 
     def _is_youtube(self, url: str) -> bool:
         """YouTube URL인지 확인"""
@@ -152,14 +123,10 @@ class WebDownloader:
                     if os.path.exists(base + '.mp4'):
                         filename = base + '.mp4'
 
-                if os.path.exists(filename):
-                    # H.264로 변환 (iOS 호환)
-                    filename = self._convert_to_h264(filename, progress_callback)
-                    if progress_callback:
-                        progress_callback(100, "완료!")
-                    return filename
+                if progress_callback:
+                    progress_callback(100, "완료!")
 
-                return None
+                return filename if os.path.exists(filename) else None
 
         except Exception as e:
             error_str = str(e)
