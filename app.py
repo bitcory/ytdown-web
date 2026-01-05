@@ -142,18 +142,26 @@ def get_progress(task_id: str):
 @app.route('/api/file/<task_id>')
 def download_file(task_id: str):
     """파일 다운로드"""
+    error_html = '''
+    <!DOCTYPE html>
+    <html><head><meta charset="UTF-8"><title>오류</title></head>
+    <body style="font-family:sans-serif;text-align:center;padding:50px;">
+    <h2>{}</h2><p><a href="/">메인으로 돌아가기</a></p>
+    </body></html>
+    '''
+
     if task_id not in tasks:
-        return jsonify({'error': 'Task not found'}), 404
+        return error_html.format('다운로드가 만료되었습니다.'), 404, {'Content-Type': 'text/html; charset=utf-8'}
 
     task = tasks[task_id]
     if task['status'] != 'completed' or not task['filepath']:
-        return jsonify({'error': 'File not ready'}), 400
+        return error_html.format('파일이 준비되지 않았습니다.'), 400, {'Content-Type': 'text/html; charset=utf-8'}
 
     filepath = task['filepath']
     filename = task['filename']
 
     if not os.path.exists(filepath):
-        return jsonify({'error': 'File not found'}), 404
+        return error_html.format('파일을 찾을 수 없습니다.'), 404, {'Content-Type': 'text/html; charset=utf-8'}
 
     # 파일 전송
     response = send_file(
@@ -162,9 +170,9 @@ def download_file(task_id: str):
         download_name=filename
     )
 
-    # 1분 후 파일 삭제 (별도 스레드에서)
+    # 5분 후 파일 삭제 (별도 스레드에서)
     def cleanup_later():
-        time.sleep(60)
+        time.sleep(300)
         downloader.cleanup(filepath)
         if task_id in tasks:
             del tasks[task_id]
