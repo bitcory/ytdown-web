@@ -123,8 +123,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 fileLink.href = data.download_url;
                 downloadLink.style.display = 'block';
+                statusText.textContent = '다운로드 완료! 파일이 저장되었습니다.';
 
-                window.location.href = data.download_url;
+                // 페이지 이동 없이 백그라운드 다운로드
+                const downloadFrame = document.createElement('iframe');
+                downloadFrame.style.display = 'none';
+                downloadFrame.src = data.download_url;
+                document.body.appendChild(downloadFrame);
+                setTimeout(() => downloadFrame.remove(), 10000);
 
                 // 3초 후 UI 자동 리셋
                 setTimeout(() => {
